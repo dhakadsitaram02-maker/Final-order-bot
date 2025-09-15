@@ -57,6 +57,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
   // ===== /order command =====
   if (interaction.isChatInputCommand() && interaction.commandName === "order") {
+    await interaction.deferReply({ emphemeral : true });
     if (interaction.channel.parentId !== config.TICKET_CATEGORY) {
       return interaction.reply({ content: "❌ Ye command sirf ticket channels me use ho sakti hai.", ephemeral: true });
     }
