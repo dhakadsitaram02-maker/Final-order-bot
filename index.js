@@ -146,7 +146,6 @@ function showSummary(interaction, cart) {
   interaction.update({ embeds: [embed], components: [row] });
 }
 
-client.login(process.env.TOKEN);
 // Bot login
 client.login(process.env.TOKEN);
 
