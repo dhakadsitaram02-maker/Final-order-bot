@@ -136,39 +136,32 @@ client.on("interactionCreate", async (interaction) => {
 
 // ===== Functions =====
 async function showItem(interaction, step, fresh = false) {
-  const itemGroups = config.items;
-  const groupIndex = Math.floor(step / 3); // 3 items per group
-  const group = itemGroups[groupIndex];
+    const allServices = config.items.flatMap(g => g.services); // Saare items ek list me
+    const service = allServices[step];
 
-  if (!group) {
-    return await interaction.editReply({
-      content: "✅ Sare items show ho gaye.",
-      components: []
-    });
-  }
+    if (!service) {
+        return await interaction.editReply({
+            content: "✅ Sare items show ho gaye.",
+            components: []
+        });
+    }
 
-  const services = group.services || [];
-  const embed = new EmbedBuilder()
-    .setTitle(`${group.category}`)
-    .setDescription("Choose an item to add to your cart:")
-    .addFields(services.map((s, i) => ({
-      name: `${i + 1}. ${s.name}`,
-      value: `${s.price} ${config.currency[0]} (${s.inr}₹)`
-    })))
-    .setColor("Blue");
+    const embed = new EmbedBuilder()
+        .setTitle(`🛠️ ${service.name}`)
+        .setDescription(`Price: ${service.price}${config.currency[0]} (${service.inr}₹)`)
+        .setColor("Blue");
 
-  const row = new ActionRowBuilder().addComponents(
-    ...services.map((s, i) =>
-      new ButtonBuilder()
-        .setCustomId(`add_${step}_${i}`)
-        .setLabel(`Add ${s.name}`)
-        .setStyle(ButtonStyle.Primary)
-    ),
-    new ButtonBuilder().setCustomId("skip").setLabel("Skip").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("confirm").setLabel("Confirm").setStyle(ButtonStyle.Success)
-  );
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`add_${step}_0`).setLabel("Add to Cart").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("skip").setLabel("Skip").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("confirm").setLabel("Confirm Order").setStyle(ButtonStyle.Success)
+    );
 
-  await interaction.editReply({ embeds: [embed], components: [row] });
+    if (fresh) {
+        await interaction.editReply({ embeds: [embed], components: [row] });
+    } else {
+        await interaction.update({ embeds: [embed], components: [row] });
+    }
 }
 
 async function showSummary(interaction, cart) {
