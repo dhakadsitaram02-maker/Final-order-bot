@@ -146,14 +146,4 @@ function showSummary(interaction, cart) {
   interaction.update({ embeds: [embed], components: [row] });
 }
 
-// Bot login
 client.login(process.env.TOKEN);
-
-// ---- Neeche ye add kar ----
-const express = require('express');
-const app = express();
-
-app.get('/', (req, res) => res.send('Bot is running!'));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Keepalive server running on port ${PORT}`));
