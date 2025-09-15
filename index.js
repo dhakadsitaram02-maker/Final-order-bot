@@ -195,4 +195,4 @@ async function showSummary(interaction, cart) {
 }
 
 // ===== Login =====
-client.login(config.TOKEN);
+client.login(process.env.TOKEN);
