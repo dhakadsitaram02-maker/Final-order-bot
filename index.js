@@ -128,13 +128,13 @@ if (interaction.isChatInputCommand() && interaction.commandName === "order") {
 // ===== Function to show item =====
 async function showItem(interaction, step, fresh = false) {
     const itemGroups = config.items;
-    const groupIndex = Math.floor(step / 3); // 3 items per group (example)
+    const groupIndex = Math.floor(step / 3); // 3 items per group
     const group = itemGroups[groupIndex];
 
     if (!group) {
-        return await interaction.followUp({
+        return await interaction.editReply({
             content: "✅ Sare items show ho gaye.",
-            ephemeral: true
+            components: []
         });
     }
 
@@ -149,7 +149,7 @@ async function showItem(interaction, step, fresh = false) {
         .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(
-        services.map((s, i) =>
+        ...services.map((s, i) =>
             new ButtonBuilder()
                 .setCustomId(`add_${step}_${i}`)
                 .setLabel(`Add ${s.name}`)
@@ -159,19 +159,16 @@ async function showItem(interaction, step, fresh = false) {
         new ButtonBuilder().setCustomId("confirm").setLabel("Confirm").setStyle(ButtonStyle.Success)
     );
 
-    if (fresh) {
-        await interaction.editReply({ embeds: [embed], components: [row] });
-    } else {
-        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
-    }
+    // Always use editReply for main interaction
+    await interaction.editReply({ embeds: [embed], components: [row] });
 }
 
 // ===== Function to show summary =====
 async function showSummary(interaction, cart) {
     if (!cart.length) {
-        return await interaction.followUp({
+        return await interaction.editReply({
             content: "🛒 Tumhari cart abhi empty hai.",
-            ephemeral: true
+            components: []
         });
     }
 
@@ -180,5 +177,5 @@ async function showSummary(interaction, cart) {
         .setDescription(cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n"))
         .setColor("Green");
 
-    await interaction.followUp({ embeds: [embed], ephemeral: true });
+    await interaction.editReply({ embeds: [embed], components: [] });
 }
