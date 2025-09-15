@@ -76,6 +76,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       // Staff role check
+      console.log("User Roles:",
       if (!interaction.member.roles.cache.some(r => config.STAFF_ROLE_IDS.includes(r.id))) {
         return await interaction.editReply({
           content: "❌ Sirf staff ya owner hi order bana sakte hain."
