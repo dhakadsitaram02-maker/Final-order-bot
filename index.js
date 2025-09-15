@@ -49,41 +49,37 @@ client.once("ready", async () => {
   }
 });
 
-// ===== /order command =====
-if (interaction.isChatInputCommand() && interaction.commandName === "order") {
-    try {
-        // Defer response immediately
-        await interaction.deferReply({ ephemeral: true });
+client.on("interactionCreate", async (interaction) => {
+    // ===== /order command =====
+    if (interaction.isChatInputCommand() && interaction.commandName === "order") {
+        try {
+            await interaction.deferReply({ ephemeral: true });
 
-        // Ticket category check
-        if (interaction.channel.parentId !== config.TICKET_CATEGORY) {
-            return await interaction.editReply({
-                content: "❌ Ye command sirf ticket channel me hi use ho sakti hai."
-            });
-        }
+            if (interaction.channel.parentId !== config.TICKET_CATEGORY) {
+                return await interaction.editReply({
+                    content: "❌ Ye command sirf ticket channel me hi use ho sakti hai."
+                });
+            }
 
-        // Staff role check
-        if (!interaction.member.roles.cache.some(r => config.STAFF_ROLE_IDS.includes(r.id))) {
-            return await interaction.editReply({
-                content: "❌ Sirf staff ya owner hi order bana sakte hain."
-            });
-        }
+            if (!interaction.member.roles.cache.some(r => config.STAFF_ROLE_IDS.includes(r.id))) {
+                return await interaction.editReply({
+                    content: "❌ Sirf staff ya owner hi order bana sakte hain."
+                });
+            }
 
-        // Start order
-        activeOrders.set(interaction.channel.id, { step: 0, cart: [] });
+            activeOrders.set(interaction.channel.id, { step: 0, cart: [] });
+            await showItem(interaction, 0, true);
 
-        // First item show
-        await showItem(interaction, 0, true); // true = fresh start
-
-    } catch (err) {
-        console.error("Order command error:", err);
-        if (interaction.deferred || interaction.replied) {
-            await interaction.editReply({ content: "⚠️ Kuch galat ho gaya, try again." });
-        } else {
-            await interaction.reply({ content: "⚠️ Kuch galat ho gaya, try again.", ephemeral: true });
+        } catch (err) {
+            console.error("Order command error:", err);
+            if (interaction.deferred || interaction.replied) {
+                await interaction.editReply({ content: "⚠️ Kuch galat ho gaya, try again." });
+            } else {
+                await interaction.reply({ content: "⚠️ Kuch galat ho gaya, try again.", ephemeral: true });
+            }
         }
     }
-}
+});
 
   // ===== Buttons =====
   if (interaction.isButton()) {
