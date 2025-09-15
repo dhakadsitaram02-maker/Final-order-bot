@@ -1,6 +1,7 @@
 {
   "prefix": "/",
   "currency": ["$", "₹"],
+  "TICKET_CATEGORY": "1415597179103346730",
   "items": [
     {
       "category": "🎨 Design & Branding",
