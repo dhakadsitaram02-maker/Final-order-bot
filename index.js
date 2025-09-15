@@ -146,4 +146,4 @@ function showSummary(interaction, cart) {
   interaction.update({ embeds: [embed], components: [row] });
 }
 
-client.login(config.TOKEN);
+client.login(process.env.TOKEN);
