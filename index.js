@@ -49,26 +49,41 @@ client.once("ready", async () => {
   }
 });
 
-// ========== ORDER COMMAND ==========
-const activeOrders = new Map();
+// ===== /order command =====
+if (interaction.isChatInputCommand() && interaction.commandName === "order") {
+    try {
+        // Defer response immediately
+        await interaction.deferReply({ ephemeral: true });
 
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
+        // Ticket category check
+        if (interaction.channel.parentId !== config.TICKET_CATEGORY) {
+            return await interaction.editReply({
+                content: "❌ Ye command sirf ticket channel me hi use ho sakti hai."
+            });
+        }
 
-  // ===== /order command =====
-  if (interaction.isChatInputCommand() && interaction.commandName === "order") {
-    await interaction.deferReply({ emphemeral : true });
-    if (interaction.channel.parentId !== config.TICKET_CATEGORY) {
-      return interaction.reply({ content: "❌ Ye command sirf ticket channels me use ho sakti hai.", ephemeral: true });
+        // Staff role check
+        if (!interaction.member.roles.cache.some(r => config.STAFF_ROLE_IDS.includes(r.id))) {
+            return await interaction.editReply({
+                content: "❌ Sirf staff ya owner hi order bana sakte hain."
+            });
+        }
+
+        // Start order
+        activeOrders.set(interaction.channel.id, { step: 0, cart: [] });
+
+        // First item show
+        await showItem(interaction, 0, true); // true = fresh start
+
+    } catch (err) {
+        console.error("Order command error:", err);
+        if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({ content: "⚠️ Kuch galat ho gaya, try again." });
+        } else {
+            await interaction.reply({ content: "⚠️ Kuch galat ho gaya, try again.", ephemeral: true });
+        }
     }
-
-    if (!interaction.member.roles.cache.some(r => config.STAFF_ROLE_IDS.includes(r.id)) && interaction.guild.ownerId !== interaction.user.id) {
-      return interaction.reply({ content: "❌ Sirf staff ya owner hi order start kar sakte hain.", ephemeral: true });
-    }
-
-    activeOrders.set(interaction.channel.id, { step: 0, cart: [] });
-    showItem(interaction, 0);
-  }
+}
 
   // ===== Buttons =====
   if (interaction.isButton()) {
@@ -111,51 +126,59 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // ===== Function to show item =====
-function showItem(interaction, index, edit = false) {
-  const item = items[index];
-  const embed = new EmbedBuilder()
-    .setTitle("🛒 Order Item")
-    .setDescription(`**${item.name}**\nPrice: $${item.price} (₹${item.price * 85})`)
-    .setColor("Blue");
+async function showItem(interaction, step, fresh = false) {
+    const itemGroups = config.items;
+    const groupIndex = Math.floor(step / 3); // 3 items per group (example)
+    const group = itemGroups[groupIndex];
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`add_${index}`).setLabel("Add to Cart").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`skip_${index}`).setLabel("Skip").setStyle(ButtonStyle.Secondary)
-  );
+    if (!group) {
+        return await interaction.followUp({
+            content: "✅ Sare items show ho gaye.",
+            ephemeral: true
+        });
+    }
 
-  if (edit) {
-    interaction.update({ embeds: [embed], components: [row] });
-  } else {
-    interaction.reply({ embeds: [embed], components: [row] });
-  }
+    const services = group.services || [];
+    const embed = new EmbedBuilder()
+        .setTitle(`${group.category}`)
+        .setDescription("Choose an item to add to your cart:")
+        .addFields(services.map((s, i) => ({
+            name: `${i + 1}. ${s.name}`,
+            value: `${s.price} ${config.currency[0]} (${s.inr}₹)`
+        })))
+        .setColor("Blue");
+
+    const row = new ActionRowBuilder().addComponents(
+        services.map((s, i) =>
+            new ButtonBuilder()
+                .setCustomId(`add_${step}_${i}`)
+                .setLabel(`Add ${s.name}`)
+                .setStyle(ButtonStyle.Primary)
+        ),
+        new ButtonBuilder().setCustomId("skip").setLabel("Skip").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("confirm").setLabel("Confirm").setStyle(ButtonStyle.Success)
+    );
+
+    if (fresh) {
+        await interaction.editReply({ embeds: [embed], components: [row] });
+    } else {
+        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true });
+    }
 }
 
 // ===== Function to show summary =====
-function showSummary(interaction, cart) {
-  const total = cart.reduce((a, b) => a + b.price, 0);
+async function showSummary(interaction, cart) {
+    if (!cart.length) {
+        return await interaction.followUp({
+            content: "🛒 Tumhari cart abhi empty hai.",
+            ephemeral: true
+        });
+    }
 
-  const embed = new EmbedBuilder()
-    .setTitle("📝 Order Summary")
-    .setDescription(cart.length > 0 ? cart.map(i => `• ${i.name} - $${i.price} (₹${i.price * 85})`).join("\n") : "❌ No items selected")
-    .addFields({ name: "Total", value: `$${total} (₹${total * 85})` })
-    .setColor("Gold");
+    const embed = new EmbedBuilder()
+        .setTitle("🛍️ Order Summary")
+        .setDescription(cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n"))
+        .setColor("Green");
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("confirm").setLabel("✅ Confirm Order").setStyle(ButtonStyle.Primary)
-  );
-
-  interaction.update({ embeds: [embed], components: [row] });
+    await interaction.followUp({ embeds: [embed], ephemeral: true });
 }
-
-client.login(process.env.TOKEN);
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("✅ Bot is running!");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌐 Web server started on port ${PORT}`);
-});
