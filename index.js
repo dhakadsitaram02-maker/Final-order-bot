@@ -196,3 +196,14 @@ async function showSummary(interaction, cart) {
 
 // ===== Login =====
 client.login(process.env.TOKEN);
+// ================== Dummy Web Server for Render ==================
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("✅ Bot is running fine on Render!");
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`Web server running on port ${process.env.PORT || 3000}`);
+});
