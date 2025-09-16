@@ -92,7 +92,10 @@ client.on("interactionCreate", async (interaction) => {
   // --- Buttons ---
   if (interaction.isButton()) {
     const order = activeOrders.get(interaction.channel.id);
-    if (!order) return;
+    if (!order) return; await interaction.reply({ 
+            content: "⚠️ No active order mila.", 
+            ephemeral: true 
+        });
 
     const [action, step, i] = interaction.customId.split("_");
 
