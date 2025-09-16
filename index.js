@@ -90,97 +90,99 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // --- Buttons ---
-  if (interaction.isButton()) {
-    const order = activeOrders.get(interaction.channel.id);
-    if (!order) return; await interaction.reply({ 
-            content: "⚠️ No active order mila.", 
-            ephemeral: true 
-        });
+client.on(Events.InteractionCreate, async interaction => {
+    if (interaction.isButton()) {
+        const order = activeOrders.get(interaction.channel.id);
+        if (!order) return;
 
-    const [action, step, i] = interaction.customId.split("_");
+        const [action, stepStr] = interaction.customId.split("_");
+        let step = parseInt(stepStr);
 
-    if (action === "add") {
-      const group = config.items[Math.floor(step / 3)];
-      if (group && group.services[i]) {
-        order.cart.push(group.services[i]);
-      }
-      order.step++;
-      if (order.step < config.items.length * 3) {
-        await showItem(interaction, order.step, true);
-      } else {
-        await showSummary(interaction, order.cart);
-      }
-    } 
-    else if (action === "skip") {
-      order.step++;
-      if (order.step < config.items.length * 3) {
-        await showItem(interaction, order.step, true);
-      } else {
-        await showSummary(interaction, order.cart);
-      }
-    } 
-    else if (action === "confirm") {
-      const logChannel = interaction.guild.channels.cache.get(config.ORDER_LOGS_CHANNEL);
-      if (logChannel) {
-        const embed = new EmbedBuilder()
-          .setTitle("📦 New Order Confirmed")
-          .setDescription(order.cart.map(i => `• ${i.name} - $${i.price} (₹${i.price * 85})`).join("\n"))
-          .addFields({ name: "Customer", value: `<@${interaction.user.id}>` })
-          .addFields({ name: "Total", value: `$${order.cart.reduce((a, b) => a + b.price, 0)} (₹${order.cart.reduce((a, b) => a + b.price, 0) * 85})` })
-          .setColor("Green");
+        if (action === "add") {
+            // Item add to cart
+            const allServices = config.items.flatMap(g => g.services);
+            const service = allServices[step];
+            if (service) order.cart.push(service);
 
-        await logChannel.send({ embeds: [embed] });
-      }
-      await interaction.update({ content: "✅ Order confirm ho gaya!", embeds: [], components: [] });
-      activeOrders.delete(interaction.channel.id);
+            order.step++;
+            await showItem(interaction, order.step, order.cart);
+        } 
+        else if (action === "skip") {
+            // Next item
+            order.step++;
+            await showItem(interaction, order.step, order.cart);
+        } 
+        else if (action === "confirm") {
+            // Summary confirm -> logs me bhejo
+            const logChannel = interaction.guild.channels.cache.get(config.ORDER_LOGS_CHANNEL);
+            if (logChannel) {
+                const embed = new EmbedBuilder()
+                    .setTitle("📦 New Order Confirmed")
+                    .setDescription(
+                        order.cart.length
+                            ? order.cart.map(i => `• ${i.name} - ${i.price}${config.currency[0]} (${i.inr}₹)`).join("\n")
+                            : "❌ Empty order"
+                    )
+                    .addFields({ name: "Customer", value: `<@${interaction.user.id}>` })
+                    .addFields({ 
+                        name: "Total", 
+                        value: `${order.cart.reduce((a, b) => a + b.price, 0)}${config.currency[0]}`
+                    })
+                    .setColor("Green");
+
+                await logChannel.send({ embeds: [embed] });
+            }
+
+            await interaction.update({
+                content: "✅ Order confirm ho gaya!",
+                embeds: [],
+                components: []
+            });
+
+            activeOrders.delete(interaction.channel.id);
+        }
     }
-  }
 });
 
 // ===== Functions =====
-async function showItem(interaction, step, fresh = false) {
-    const allServices = config.items.flatMap(g => g.services); // Saare items ek list me
+// ===== Show Item Function =====
+async function showItem(interaction, step, cart = []) {
+    const allServices = config.items.flatMap(g => g.services); // Saare services ek list me
     const service = allServices[step];
 
     if (!service) {
-        return await interaction.editReply({
-            content: "✅ Sare items show ho gaye.",
-            components: []
-        });
+        // Agar items khatam ho gaye -> summary dikhao
+        const embed = new EmbedBuilder()
+            .setTitle("🛍️ Order Summary")
+            .setDescription(
+                cart.length
+                    ? cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n")
+                    : "Cart empty hai 🛒"
+            )
+            .setColor("Green");
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId("confirm")
+                .setLabel("✅ Confirm Order")
+                .setStyle(ButtonStyle.Success)
+        );
+
+        return await interaction.editReply({ embeds: [embed], components: [row] });
     }
 
+    // Agar items bache hain -> next item dikhao
     const embed = new EmbedBuilder()
         .setTitle(`🛠️ ${service.name}`)
         .setDescription(`Price: ${service.price}${config.currency[0]} (${service.inr}₹)`)
         .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`add_${step}_0`).setLabel("Add to Cart").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("skip").setLabel("Skip").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("confirm").setLabel("Confirm Order").setStyle(ButtonStyle.Success)
+        new ButtonBuilder().setCustomId(`add_${step}`).setLabel("Add to Cart").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`skip_${step}`).setLabel("Skip").setStyle(ButtonStyle.Secondary)
     );
 
-    if (fresh) {
-        await interaction.editReply({ embeds: [embed], components: [row] });
-    } else {
-        await interaction.update({ embeds: [embed], components: [row] });
-    }
-}
-
-async function showSummary(interaction, cart) {
-  if (!cart.length) {
-    return await interaction.editReply({
-      content: "🛒 Tumhari cart abhi empty hai.",
-      components: []
-    });
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle("🛍️ Order Summary")
-    .setDescription(cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n"))
-    .setColor("Green");
-
-  await interaction.editReply({ embeds: [embed], components: [] });
+    await interaction.editReply({ embeds: [embed], components: [row] });
 }
 
 // ===== Login =====
