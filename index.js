@@ -90,88 +90,55 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // --- Buttons ---
-client.on(Events.InteractionCreate, async interaction => {
+client.on("interactionCreate", async (interaction) => {
     if (interaction.isButton()) {
         const order = activeOrders.get(interaction.channel.id);
         if (!order) return;
 
-        const [action, stepStr] = interaction.customId.split("_");
-        let step = parseInt(stepStr);
-
-        if (action === "add") {
-            // Item add to cart
+        if (interaction.customId.startsWith("add_")) {
+            const step = parseInt(interaction.customId.split("_")[1]);
             const allServices = config.items.flatMap(g => g.services);
-            const service = allServices[step];
-            if (service) order.cart.push(service);
+            const item = allServices[step];
+            if (item) order.cart.push(item);
 
             order.step++;
-            await showItem(interaction, order.step, order.cart);
-        } 
-        else if (action === "skip") {
-            // Next item
+            await showItem(interaction, order.step, false);
+        }
+
+        else if (interaction.customId.startsWith("skip_")) {
             order.step++;
-            await showItem(interaction, order.step, order.cart);
-        } 
-        else if (action === "confirm") {
-            // Summary confirm -> logs me bhejo
+            await showItem(interaction, order.step, false);
+        }
+
+        else if (interaction.customId === "confirm") {
             const logChannel = interaction.guild.channels.cache.get(config.ORDER_LOGS_CHANNEL);
             if (logChannel) {
                 const embed = new EmbedBuilder()
                     .setTitle("📦 New Order Confirmed")
-                    .setDescription(
-                        order.cart.length
-                            ? order.cart.map(i => `• ${i.name} - ${i.price}${config.currency[0]} (${i.inr}₹)`).join("\n")
-                            : "❌ Empty order"
-                    )
+                    .setDescription(order.cart.map(i => `• ${i.name} - ${i.price}${config.currency[0]} (${i.inr}₹)`).join("\n"))
                     .addFields({ name: "Customer", value: `<@${interaction.user.id}>` })
-                    .addFields({ 
-                        name: "Total", 
-                        value: `${order.cart.reduce((a, b) => a + b.price, 0)}${config.currency[0]}`
-                    })
+                    .addFields({ name: "Total", value: `${order.cart.reduce((a, b) => a + b.price, 0)}${config.currency[0]} (${order.cart.reduce((a, b) => a + b.price, 0) * 85}₹)` })
                     .setColor("Green");
 
                 await logChannel.send({ embeds: [embed] });
             }
 
-            await interaction.update({
-                content: "✅ Order confirm ho gaya!",
-                embeds: [],
-                components: []
-            });
-
+            await interaction.update({ content: "✅ Order confirm ho gaya!", embeds: [], components: [] });
             activeOrders.delete(interaction.channel.id);
         }
     }
 });
 
-// ===== Functions =====
 // ===== Show Item Function =====
-async function showItem(interaction, step, cart = []) {
-    const allServices = config.items.flatMap(g => g.services); // Saare services ek list me
+async function showItem(interaction, step, fresh = false) {
+    const allServices = config.items.flatMap(g => g.services); // saare items ek hi array me
     const service = allServices[step];
 
     if (!service) {
-        // Agar items khatam ho gaye -> summary dikhao
-        const embed = new EmbedBuilder()
-            .setTitle("🛍️ Order Summary")
-            .setDescription(
-                cart.length
-                    ? cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n")
-                    : "Cart empty hai 🛒"
-            )
-            .setColor("Green");
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId("confirm")
-                .setLabel("✅ Confirm Order")
-                .setStyle(ButtonStyle.Success)
-        );
-
-        return await interaction.editReply({ embeds: [embed], components: [row] });
+        // Agar items khatam ho gaye → summary dikhao
+        return await showSummary(interaction, activeOrders.get(interaction.channel.id).cart);
     }
 
-    // Agar items bache hain -> next item dikhao
     const embed = new EmbedBuilder()
         .setTitle(`🛠️ ${service.name}`)
         .setDescription(`Price: ${service.price}${config.currency[0]} (${service.inr}₹)`)
@@ -182,9 +149,35 @@ async function showItem(interaction, step, cart = []) {
         new ButtonBuilder().setCustomId(`skip_${step}`).setLabel("Skip").setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.editReply({ embeds: [embed], components: [row] });
+    if (fresh) {
+        await interaction.editReply({ embeds: [embed], components: [row] });
+    } else {
+        await interaction.update({ embeds: [embed], components: [row] });
+    }
 }
 
+// ===== Function to show final summary =====
+async function showSummary(interaction, cart) {
+    if (!cart.length) {
+        return await interaction.update({
+            content: "🛒 Tumhari cart empty hai, koi order confirm nahi hua.",
+            embeds: [],
+            components: []
+        });
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle("🛍️ Order Summary")
+        .setDescription(cart.map((c, i) => `${i + 1}. ${c.name} - ${c.price}${config.currency[0]} (${c.inr}₹)`).join("\n"))
+        .setColor("Green");
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("confirm").setLabel("Confirm Order").setStyle(ButtonStyle.Success)
+    );
+
+    await interaction.update({ embeds: [embed], components: [row] });
+}
+  
 // ===== Login =====
 client.login(process.env.TOKEN);
 // ================== Dummy Web Server for Render ==================
