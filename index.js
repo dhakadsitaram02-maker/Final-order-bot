@@ -195,6 +195,79 @@ async function showSummary(interaction, cart) {
   await interaction.update({ embeds: [embed], components: [row], content: "" });
 }
 
+// ===== Ticket Create + Close =====
+client.on("interactionCreate", async (interaction) => {
+    // Ticket Panel Command
+    if (interaction.isChatInputCommand() && interaction.commandName === "ticketpanel") {
+        const embed = new EmbedBuilder()
+            .setTitle("🎫 Support Ticket")
+            .setDescription("Click the button below to open a support ticket.\n\n💡 Kripya sirf genuine help ke liye ticket kholein.")
+            .setColor("Blue")
+            .setImage("https://media.tenor.com/4dH2v7lQ5uIAAAAC/support-help.gif");
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId("create_ticket")
+                .setLabel("🎟️ Open Ticket")
+                .setStyle(ButtonStyle.Primary)
+        );
+
+        await interaction.reply({ embeds: [embed], components: [row] });
+    }
+
+    // ===== Ticket Create =====
+    if (interaction.isButton() && interaction.customId === "create_ticket") {
+        const category = process.env.TICKET_CATEGORY;
+        const staffRole = process.env.STAFF_ROLE;
+
+        // Naya channel create karo
+        const ticketChannel = await interaction.guild.channels.create({
+            name: `ticket-${interaction.user.username}`,
+            type: 0, // Text Channel
+            parent: category || null,
+            permissionOverwrites: [
+                {
+                    id: interaction.guild.id, // Everyone
+                    deny: ["ViewChannel"],
+                },
+                {
+                    id: interaction.user.id, // Ticket opener
+                    allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"],
+                },
+                {
+                    id: staffRole, // Staff role
+                    allow: ["ViewChannel", "SendMessages", "ReadMessageHistory"],
+                }
+            ]
+        });
+
+        // Send msg inside ticket with close button
+        const embed = new EmbedBuilder()
+            .setTitle("📩 Support Ticket Created")
+            .setDescription(`Hello <@${interaction.user.id}>, staff will be with you shortly.\n\nClick below to close this ticket when done.`)
+            .setColor("Green");
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId("close_ticket")
+                .setLabel("🔒 Close Ticket")
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
+
+        await interaction.reply({ content: `✅ Ticket created: ${ticketChannel}`, ephemeral: true });
+    }
+
+    // ===== Ticket Close =====
+    if (interaction.isButton() && interaction.customId === "close_ticket") {
+        await interaction.channel.send("🔒 Ticket closed in 5 seconds...");
+        setTimeout(() => {
+            interaction.channel.delete().catch(() => {});
+        }, 5000);
+    }
+});
+
 // ===== Login =====
 client.login(process.env.TOKEN);
 const express = require("express");
